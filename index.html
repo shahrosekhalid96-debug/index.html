@@ -591,17 +591,17 @@
       </div>
 
       <div class="mode-selector">
-        <button class="mode-button active" onclick="setMode('send')" id="sendBtn">
+        <button class="mode-button active" id="sendBtn">
           📤 Send Files
         </button>
-        <button class="mode-button" onclick="setMode('receive')" id="receiveBtn">
+        <button class="mode-button" id="receiveBtn">
           📥 Receive Files
         </button>
       </div>
 
       <!-- SEND MODE -->
       <div id="sendMode">
-        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-zone" id="uploadZone">
           <svg class="upload-icon" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2" viewBox="0 0 24 24">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="17 8 12 3 7 8"></polyline>
@@ -616,20 +616,20 @@
         <div id="fileDisplay" style="display: none;"></div>
         
         <div id="sendControls" style="display: none; text-align: center;">
-          <button class="action-button" onclick="startSending()" id="startSendBtn">
+          <button class="action-button" id="startSendBtn">
             Start Sending
           </button>
         </div>
 
         <div id="roomCodeContainer" style="display: none;">
           <div class="room-code-display">
-            <div class="connection-status status-waiting">
+            <div class="connection-status status-waiting" id="connectionStatus">
               <span class="status-dot"></span>
               Waiting for receiver...
             </div>
             <div class="room-code-label">Share this code with the recipient</div>
             <div class="room-code" id="roomCode"></div>
-            <button class="copy-button" onclick="copyRoomCode()">
+            <button class="copy-button" id="copyCodeBtn">
               📋 Copy Code
             </button>
           </div>
@@ -652,7 +652,7 @@
             maxlength="6"
           />
           <br>
-          <button class="action-button" onclick="connectToPeer()">
+          <button class="action-button" id="connectBtn">
             Connect & Receive
           </button>
           
@@ -695,7 +695,7 @@
     // Global variables
     let peer, conn;
     let selectedFile = null;
-    let chunkSize = 256 * 1024; // 256KB chunks for stability
+    let chunkSize = 256 * 1024; // 256KB chunks
     let currentMode = 'send';
 
     // Receiver state
@@ -704,8 +704,84 @@
     let receivedSize = 0;
     let startTime = 0;
 
-    // UI Helper Functions
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Page loaded, initializing...');
+      setupEventListeners();
+    });
+
+    function setupEventListeners() {
+      // Mode switching
+      document.getElementById('sendBtn').addEventListener('click', () => setMode('send'));
+      document.getElementById('receiveBtn').addEventListener('click', () => setMode('receive'));
+
+      // Upload zone click
+      document.getElementById('uploadZone').addEventListener('click', function() {
+        console.log('Upload zone clicked');
+        document.getElementById('fileInput').click();
+      });
+
+      // File selection
+      document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+
+      // Start sending button
+      document.getElementById('startSendBtn').addEventListener('click', startSending);
+
+      // Copy code button
+      document.getElementById('copyCodeBtn').addEventListener('click', copyRoomCode);
+
+      // Connect button for receiver
+      document.getElementById('connectBtn').addEventListener('click', connectToPeer);
+
+      console.log('Event listeners set up');
+    }
+
+    function handleFileSelect(e) {
+      console.log('File select triggered');
+      const file = e.target.files[0];
+      
+      if (!file) {
+        console.log('No file selected');
+        return;
+      }
+
+      console.log('File selected:', file.name, file.size);
+
+      const MAX_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
+      
+      if (file.size > MAX_SIZE) {
+        alert('⚠️ File exceeds 5GB limit. Please choose a smaller file.');
+        return;
+      }
+
+      selectedFile = file;
+      
+      // Update UI
+      document.getElementById('uploadZone').classList.add('has-file');
+      
+      const fileDisplay = document.getElementById('fileDisplay');
+      fileDisplay.style.display = 'block';
+      fileDisplay.innerHTML = `
+        <div class="file-display">
+          <div class="file-icon-small">
+            <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+              <polyline points="13 2 13 9 20 9"></polyline>
+            </svg>
+          </div>
+          <div class="file-details">
+            <div class="file-name-display">${file.name}</div>
+            <div class="file-size-display">${formatFileSize(file.size)}</div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('sendControls').style.display = 'block';
+      console.log('UI updated, showing send button');
+    }
+
     function setMode(mode) {
+      console.log('Switching to mode:', mode);
       currentMode = mode;
       
       document.getElementById('sendBtn').classList.toggle('active', mode === 'send');
@@ -714,7 +790,6 @@
       document.getElementById('sendMode').style.display = mode === 'send' ? 'block' : 'none';
       document.getElementById('receiveMode').style.display = mode === 'receive' ? 'block' : 'none';
 
-      // Reset states
       resetSendState();
       resetReceiveState();
     }
@@ -756,7 +831,7 @@
     function copyRoomCode() {
       const code = document.getElementById('roomCode').textContent;
       navigator.clipboard.writeText(code).then(() => {
-        const btn = event.target;
+        const btn = document.getElementById('copyCodeBtn');
         const originalText = btn.textContent;
         btn.textContent = '✓ Copied!';
         setTimeout(() => {
@@ -770,56 +845,22 @@
       statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
     }
 
-    // File Selection
-    document.getElementById('fileInput').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const MAX_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
-      
-      if (file.size > MAX_SIZE) {
-        alert('⚠️ File exceeds 5GB limit. Please choose a smaller file.');
-        return;
-      }
-
-      selectedFile = file;
-      
-      // Update UI
-      document.getElementById('uploadZone').classList.add('has-file');
-      
-      const fileDisplay = document.getElementById('fileDisplay');
-      fileDisplay.style.display = 'block';
-      fileDisplay.innerHTML = `
-        <div class="file-display">
-          <div class="file-icon-small">
-            <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
-              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-              <polyline points="13 2 13 9 20 9"></polyline>
-            </svg>
-          </div>
-          <div class="file-details">
-            <div class="file-name-display">${file.name}</div>
-            <div class="file-size-display">${formatFileSize(file.size)}</div>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('sendControls').style.display = 'block';
-    });
-
     // SENDER LOGIC
     function startSending() {
+      console.log('Start sending clicked');
+      
       if (!selectedFile) {
         alert('Please select a file first');
         return;
       }
 
       const code = generateCode();
+      console.log('Generated code:', code);
+      
       document.getElementById('roomCode').textContent = code;
       document.getElementById('roomCodeContainer').style.display = 'block';
       document.getElementById('startSendBtn').disabled = true;
 
-      // Initialize PeerJS
       try {
         peer = new Peer(code, {
           config: {
@@ -831,18 +872,19 @@
         });
 
         peer.on('open', () => {
-          console.log('Peer initialized with ID:', code);
+          console.log('Peer initialized successfully');
         });
 
         peer.on('connection', (c) => {
+          console.log('Receiver connected!');
           conn = c;
           
-          // Update status
-          const statusDiv = document.querySelector('.connection-status');
+          const statusDiv = document.getElementById('connectionStatus');
           statusDiv.className = 'connection-status status-connected';
           statusDiv.innerHTML = '<span class="status-dot"></span>Connected! Transfer starting...';
 
           conn.on('open', () => {
+            console.log('Connection opened, sending metadata');
             sendMetadata();
           });
 
@@ -902,7 +944,6 @@
             offset: offset
           });
 
-          // Update progress
           const percent = Math.min(((offset + chunkSize) / selectedFile.size) * 100, 100);
           updateSendProgress(percent, offset + e.target.result.byteLength);
         }
@@ -953,6 +994,7 @@
         return;
       }
 
+      console.log('Connecting to peer:', code);
       showStatus('receiveStatus', '🔄 Connecting...', 'info');
 
       try {
@@ -970,6 +1012,7 @@
           conn = peer.connect(code);
 
           conn.on('open', () => {
+            console.log('Connected to sender');
             showStatus('receiveStatus', '✅ Connected! Waiting for file...', 'success');
             startTime = Date.now();
           });
@@ -999,7 +1042,6 @@
 
     function handleReceiver(msg) {
       if (msg.type === 'meta') {
-        // Store metadata
         currentFileMeta = msg;
         receivedChunks = {};
         receivedSize = 0;
@@ -1007,19 +1049,16 @@
         console.log('Received metadata:', msg);
         showStatus('receiveStatus', `📥 Receiving: ${msg.name} (${formatFileSize(msg.size)})`, 'info');
         
-        // Request first chunk
         requestNextChunk(0);
       }
 
       if (msg.type === 'chunk') {
-        // Store chunk
         receivedChunks[msg.offset] = msg.data;
         receivedSize += msg.data.byteLength;
 
         const percent = (receivedSize / currentFileMeta.size) * 100;
         updateReceiveProgress(percent);
 
-        // Request next chunk or finish
         if (receivedSize < currentFileMeta.size) {
           requestNextChunk(receivedSize);
         } else {
@@ -1065,32 +1104,27 @@
       console.log('Assembling file...');
       
       try {
-        // Sort chunks by offset and extract data
         const ordered = Object.keys(receivedChunks)
           .map(k => parseInt(k))
           .sort((a, b) => a - b)
           .map(k => receivedChunks[k]);
 
-        // Create blob with proper MIME type
         const blob = new Blob(ordered, { 
           type: currentFileMeta.mime || 'application/octet-stream' 
         });
 
         console.log('File assembled:', blob.size, 'bytes, type:', blob.type);
 
-        // Trigger download
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = currentFileMeta.name; // Use original filename
+        a.download = currentFileMeta.name;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         
-        // Clean up
         setTimeout(() => URL.revokeObjectURL(url), 100);
 
-        // Show success
         const progressDiv = document.getElementById('receiveProgress');
         progressDiv.innerHTML = `
           <div class="status-message status-success">
