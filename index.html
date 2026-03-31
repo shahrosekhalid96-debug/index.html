@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Transfer - Share Files Up to 5GB Free</title>
-  <meta name="description" content="Transfer large files up to 5GB for free using peer-to-peer technology. No registration, instant sharing.">
+  <title>Transfer - Instant P2P File Sharing</title>
+  <meta name="description" content="Share files instantly with nearby devices. No codes, no typing - just click and send!">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   
   <style>
     * {
@@ -85,7 +86,7 @@
     .content {
       position: relative;
       z-index: 1;
-      max-width: 900px;
+      max-width: 1000px;
       margin: 0 auto;
       padding: 60px 40px;
       min-height: 100vh;
@@ -93,7 +94,7 @@
 
     .header {
       text-align: center;
-      margin-bottom: 50px;
+      margin-bottom: 40px;
       animation: fadeInDown 0.8s ease-out;
     }
 
@@ -110,7 +111,7 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       letter-spacing: -1px;
     }
 
@@ -119,6 +120,44 @@
       font-size: 16px;
       font-weight: 300;
       letter-spacing: 0.5px;
+      margin-bottom: 20px;
+    }
+
+    .device-name-setup {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 12px 20px;
+      border-radius: 12px;
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .device-name-input {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      width: 200px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .device-name-input:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .device-name-input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .device-name-label {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 13px;
     }
 
     .mode-selector {
@@ -138,10 +177,10 @@
       background: rgba(255, 255, 255, 0.05);
       border: 2px solid rgba(255, 255, 255, 0.2);
       color: rgba(255, 255, 255, 0.7);
-      padding: 12px 28px;
+      padding: 14px 32px;
       border-radius: 12px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 500;
       transition: all 0.3s ease;
       font-family: 'Inter', sans-serif;
@@ -165,7 +204,7 @@
       backdrop-filter: blur(20px);
       border: 2px dashed rgba(255, 255, 255, 0.2);
       border-radius: 24px;
-      padding: 60px 40px;
+      padding: 50px 40px;
       text-align: center;
       transition: all 0.3s ease;
       cursor: pointer;
@@ -179,7 +218,7 @@
       transform: translateY(-4px);
     }
 
-    .upload-zone.has-file {
+    .upload-zone.has-files {
       border-color: rgba(67, 233, 123, 0.5);
       background: rgba(67, 233, 123, 0.05);
     }
@@ -204,65 +243,164 @@
       margin-bottom: 20px;
     }
 
-    .file-display {
-      background: rgba(255, 255, 255, 0.08);
-      padding: 16px 20px;
-      border-radius: 12px;
-      margin: 20px 0;
+    .file-type-buttons {
       display: flex;
-      align-items: center;
       gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
     }
 
-    .file-icon-small {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .file-type-button {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.8);
+      padding: 10px 20px;
       border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .file-type-button:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .files-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 20px 0;
+    }
+
+    .file-card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      border-radius: 12px;
+      padding: 16px;
+      transition: all 0.3s ease;
+      position: relative;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .file-card:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-4px);
+    }
+
+    .file-preview {
+      width: 100%;
+      height: 120px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      flex-shrink: 0;
+      margin-bottom: 12px;
+      overflow: hidden;
     }
 
-    .file-details {
-      flex: 1;
-      text-align: left;
+    .file-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
-    .file-name-display {
+    .file-icon-large {
+      font-size: 40px;
+      opacity: 0.5;
+    }
+
+    .file-name {
       color: #fff;
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 500;
       margin-bottom: 4px;
-      word-break: break-all;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .file-size-display {
+    .file-size {
       color: rgba(255, 255, 255, 0.5);
-      font-size: 13px;
+      font-size: 11px;
     }
 
-    .browse-button, .action-button {
+    .remove-file {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(255, 0, 0, 0.8);
+      border: none;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .file-card:hover .remove-file {
+      opacity: 1;
+    }
+
+    .files-summary {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 16px 20px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .summary-text {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+    }
+
+    .summary-size {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .action-button {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
-      padding: 14px 32px;
+      padding: 16px 40px;
       border-radius: 12px;
-      font-size: 15px;
-      font-weight: 500;
+      font-size: 16px;
+      font-weight: 600;
       cursor: pointer;
       transition: all 0.3s ease;
       box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
       font-family: 'Inter', sans-serif;
+      width: 100%;
+      margin-bottom: 20px;
     }
 
-    .browse-button:hover, .action-button:hover {
+    .action-button:hover {
       transform: translateY(-2px);
       box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
     }
 
-    .browse-button:disabled, .action-button:disabled {
+    .action-button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
@@ -272,53 +410,153 @@
       display: none;
     }
 
-    .room-code-display {
-      background: rgba(255, 255, 255, 0.08);
+    .devices-section {
+      background: rgba(255, 255, 255, 0.05);
       backdrop-filter: blur(20px);
-      padding: 24px;
-      border-radius: 16px;
-      margin-bottom: 30px;
-      animation: slideIn 0.4s ease-out;
+      border-radius: 24px;
+      padding: 30px;
+      animation: fadeInUp 0.8s ease-out 0.3s both;
     }
 
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+    .devices-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
     }
 
-    .room-code-label {
+    .devices-title {
+      color: #fff;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .scanning-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       color: rgba(255, 255, 255, 0.6);
       font-size: 13px;
-      margin-bottom: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
     }
 
-    .room-code {
-      font-family: 'Courier New', monospace;
-      font-size: 32px;
-      color: #ffffff;
-      font-weight: 700;
-      letter-spacing: 4px;
-      margin-bottom: 16px;
+    .scanning-dot {
+      width: 8px;
+      height: 8px;
+      background: #4facfe;
+      border-radius: 50%;
+      animation: pulse-scan 1.5s ease-in-out infinite;
     }
 
-    .copy-button {
-      background: rgba(255, 255, 255, 0.1);
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      padding: 10px 24px;
-      border-radius: 10px;
-      color: white;
+    @keyframes pulse-scan {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.8); }
+    }
+
+    .device-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .device-item {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 0.3s ease;
       cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.2s ease;
-      font-family: 'Inter', sans-serif;
+      animation: deviceSlideIn 0.4s ease-out;
     }
 
-    .copy-button:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.4);
+    @keyframes deviceSlideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .device-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(102, 126, 234, 0.5);
+      transform: translateX(4px);
+    }
+
+    .device-icon {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+
+    .device-info {
+      flex: 1;
+    }
+
+    .device-name {
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .device-status {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 12px;
+    }
+
+    .connect-arrow {
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 20px;
+    }
+
+    .empty-devices {
+      text-align: center;
+      padding: 60px 20px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    .empty-text {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .empty-subtext {
+      font-size: 13px;
+    }
+
+    .broadcasting-status {
+      background: rgba(67, 233, 123, 0.1);
+      border: 1px solid rgba(67, 233, 123, 0.3);
+      color: #43e97b;
+      padding: 16px 24px;
+      border-radius: 12px;
+      text-align: center;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .broadcasting-icon {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.1); }
     }
 
     .progress-section {
@@ -326,7 +564,7 @@
       backdrop-filter: blur(20px);
       border-radius: 16px;
       padding: 24px;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
     }
 
     .progress-header {
@@ -388,8 +626,8 @@
 
     .status-message {
       text-align: center;
-      padding: 12px;
-      border-radius: 10px;
+      padding: 16px;
+      border-radius: 12px;
       margin-bottom: 20px;
       font-size: 14px;
     }
@@ -410,55 +648,6 @@
       background: rgba(79, 172, 254, 0.1);
       border: 1px solid rgba(79, 172, 254, 0.3);
       color: #4facfe;
-    }
-
-    .receive-section {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(20px);
-      border-radius: 24px;
-      padding: 50px 40px;
-      text-align: center;
-    }
-
-    .receive-title {
-      color: white;
-      font-size: 24px;
-      font-weight: 600;
-      margin-bottom: 12px;
-    }
-
-    .receive-subtitle {
-      color: rgba(255, 255, 255, 0.6);
-      margin-bottom: 30px;
-      font-size: 14px;
-    }
-
-    .room-input {
-      background: rgba(255, 255, 255, 0.1);
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      color: white;
-      padding: 16px 24px;
-      border-radius: 12px;
-      font-size: 20px;
-      text-align: center;
-      letter-spacing: 3px;
-      font-family: 'Courier New', monospace;
-      width: 100%;
-      max-width: 320px;
-      margin-bottom: 20px;
-      transition: all 0.3s ease;
-      text-transform: uppercase;
-    }
-
-    .room-input:focus {
-      outline: none;
-      border-color: rgba(255, 255, 255, 0.5);
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    .room-input::placeholder {
-      color: rgba(255, 255, 255, 0.3);
-      letter-spacing: 2px;
     }
 
     .features {
@@ -501,48 +690,6 @@
       line-height: 1.6;
     }
 
-    .connection-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 12px;
-      margin-bottom: 16px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      animation: pulse-dot 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    .status-connected {
-      background: rgba(67, 233, 123, 0.1);
-      border: 1px solid rgba(67, 233, 123, 0.3);
-      color: #43e97b;
-    }
-
-    .status-connected .status-dot {
-      background: #43e97b;
-    }
-
-    .status-waiting {
-      background: rgba(255, 193, 7, 0.1);
-      border: 1px solid rgba(255, 193, 7, 0.3);
-      color: #ffc107;
-    }
-
-    .status-waiting .status-dot {
-      background: #ffc107;
-    }
-
     @media (max-width: 768px) {
       .content {
         padding: 40px 24px;
@@ -565,13 +712,12 @@
         flex-direction: column;
       }
 
-      .room-code {
-        font-size: 24px;
-        letter-spacing: 3px;
+      .files-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       }
 
-      .receive-section {
-        padding: 40px 24px;
+      .device-name-input {
+        width: 150px;
       }
     }
   </style>
@@ -587,16 +733,21 @@
     <div class="content">
       <div class="header">
         <h1 class="logo">Transfer</h1>
-        <p class="tagline">Share files up to 5GB, peer-to-peer and free</p>
+        <p class="tagline">Instant file sharing with nearby devices</p>
+        <div class="device-name-setup">
+          <span class="device-name-label">📱 Sharing as:</span>
+          <input 
+            type="text" 
+            id="deviceNameInput" 
+            class="device-name-input" 
+            placeholder="My Device"
+          />
+        </div>
       </div>
 
       <div class="mode-selector">
-        <button class="mode-button active" id="sendBtn">
-          📤 Send Files
-        </button>
-        <button class="mode-button" id="receiveBtn">
-          📥 Receive Files
-        </button>
+        <button class="mode-button active" id="sendBtn">📤 Send Files</button>
+        <button class="mode-button" id="receiveBtn">📥 Receive Files</button>
       </div>
 
       <!-- SEND MODE -->
@@ -607,56 +758,53 @@
             <polyline points="17 8 12 3 7 8"></polyline>
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
-          <h2 class="upload-text">Choose a file to send</h2>
-          <p class="upload-subtext">Click to browse • Up to 5GB</p>
-        </div>
-        
-        <input type="file" id="fileInput" />
-
-        <div id="fileDisplay" style="display: none;"></div>
-        
-        <div id="sendControls" style="display: none; text-align: center;">
-          <button class="action-button" id="startSendBtn">
-            Start Sending
-          </button>
-        </div>
-
-        <div id="roomCodeContainer" style="display: none;">
-          <div class="room-code-display">
-            <div class="connection-status status-waiting" id="connectionStatus">
-              <span class="status-dot"></span>
-              Waiting for receiver...
-            </div>
-            <div class="room-code-label">Share this code with the recipient</div>
-            <div class="room-code" id="roomCode"></div>
-            <button class="copy-button" id="copyCodeBtn">
-              📋 Copy Code
+          <h2 class="upload-text">Drop files or folders here</h2>
+          <p class="upload-subtext">or choose from options below</p>
+          <div class="file-type-buttons">
+            <button class="file-type-button" id="selectFilesBtn">
+              📄 Select Files
+            </button>
+            <button class="file-type-button" id="selectFolderBtn">
+              📁 Select Folder
             </button>
           </div>
         </div>
+        
+        <input type="file" id="fileInput" multiple />
+        <input type="file" id="folderInput" webkitdirectory directory multiple />
 
+        <div id="filesContainer" style="display: none;">
+          <div class="files-summary">
+            <span class="summary-text" id="fileCount">0 files selected</span>
+            <span class="summary-size" id="totalSize">0 MB</span>
+          </div>
+          <div class="files-grid" id="filesGrid"></div>
+          <button class="action-button" id="startSharingBtn">
+            🚀 Start Sharing
+          </button>
+        </div>
+
+        <div id="broadcastingStatus" style="display: none;"></div>
         <div id="sendProgress" style="display: none;"></div>
       </div>
 
       <!-- RECEIVE MODE -->
       <div id="receiveMode" style="display: none;">
-        <div class="receive-section">
-          <h2 class="receive-title">Enter Room Code</h2>
-          <p class="receive-subtitle">Enter the code shared by the sender</p>
-          
-          <input 
-            type="text" 
-            id="roomInput" 
-            class="room-input"
-            placeholder="ABC123"
-            maxlength="6"
-          />
-          <br>
-          <button class="action-button" id="connectBtn">
-            Connect & Receive
-          </button>
-          
-          <div id="receiveStatus"></div>
+        <div class="devices-section">
+          <div class="devices-header">
+            <h3 class="devices-title">Available Devices</h3>
+            <div class="scanning-indicator">
+              <div class="scanning-dot"></div>
+              <span>Scanning...</span>
+            </div>
+          </div>
+          <div class="device-list" id="deviceList">
+            <div class="empty-devices">
+              <div class="empty-icon">📡</div>
+              <div class="empty-text">Looking for nearby devices...</div>
+              <div class="empty-subtext">Make sure the sender has started sharing</div>
+            </div>
+          </div>
         </div>
 
         <div id="receiveProgress" style="display: none;"></div>
@@ -665,155 +813,247 @@
       <div class="features">
         <div class="feature">
           <svg class="feature-icon" width="40" height="40" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="17 8 12 3 7 8"></polyline>
-            <line x1="12" y1="3" x2="12" y2="15"></line>
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
-          <div class="feature-title">Large Files</div>
-          <div class="feature-text">Transfer files up to 5GB without compression</div>
+          <div class="feature-title">Instant Discovery</div>
+          <div class="feature-text">No codes, no typing - devices find each other automatically</div>
         </div>
         <div class="feature">
           <svg class="feature-icon" width="40" height="40" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
           </svg>
-          <div class="feature-title">Direct Transfer</div>
-          <div class="feature-text">Peer-to-peer connection, no cloud storage</div>
+          <div class="feature-title">Direct P2P</div>
+          <div class="feature-text">Files transfer directly between devices, ultra-fast and secure</div>
         </div>
         <div class="feature">
           <svg class="feature-icon" width="40" height="40" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2" viewBox="0 0 24 24">
-            <polyline points="20 6 9 17 4 12"></polyline>
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
           </svg>
           <div class="feature-title">100% Free</div>
-          <div class="feature-text">No accounts, no limits, completely free</div>
+          <div class="feature-text">No limits, no accounts, completely free forever</div>
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    // Global variables
+    // Global state
     let peer, conn;
-    let selectedFile = null;
-    let chunkSize = 256 * 1024; // 256KB chunks
+    let selectedFiles = [];
+    let deviceName = '';
     let currentMode = 'send';
-
+    let discoveryRoom = 'transfer-discovery-v1';
+    let availableDevices = new Map();
+    let scanInterval;
+    
     // Receiver state
     let receivedChunks = {};
     let currentFileMeta = null;
     let receivedSize = 0;
     let startTime = 0;
+    let chunkSize = 256 * 1024;
 
-    // Initialize on page load
+    // Initialize
     document.addEventListener('DOMContentLoaded', function() {
-      console.log('Page loaded, initializing...');
+      console.log('Initializing Transfer App...');
+      setupDeviceName();
       setupEventListeners();
     });
+
+    function setupDeviceName() {
+      // Try to get saved device name or generate one
+      let saved = localStorage.getItem('deviceName');
+      if (!saved) {
+        const devices = ['Laptop', 'Desktop', 'Phone', 'Tablet', 'Computer'];
+        const adjectives = ['Cool', 'Fast', 'Super', 'Pro', 'Smart'];
+        saved = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${devices[Math.floor(Math.random() * devices.length)]}`;
+      }
+      deviceName = saved;
+      document.getElementById('deviceNameInput').value = deviceName;
+      
+      // Save on change
+      document.getElementById('deviceNameInput').addEventListener('change', function(e) {
+        deviceName = e.target.value || 'My Device';
+        localStorage.setItem('deviceName', deviceName);
+        console.log('Device name updated:', deviceName);
+      });
+    }
 
     function setupEventListeners() {
       // Mode switching
       document.getElementById('sendBtn').addEventListener('click', () => setMode('send'));
       document.getElementById('receiveBtn').addEventListener('click', () => setMode('receive'));
 
-      // Upload zone click
-      document.getElementById('uploadZone').addEventListener('click', function() {
-        console.log('Upload zone clicked');
+      // Upload methods
+      document.getElementById('uploadZone').addEventListener('click', () => {
         document.getElementById('fileInput').click();
+      });
+      
+      document.getElementById('selectFilesBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.getElementById('fileInput').click();
+      });
+      
+      document.getElementById('selectFolderBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.getElementById('folderInput').click();
+      });
+
+      // Drag and drop
+      const uploadZone = document.getElementById('uploadZone');
+      uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.style.borderColor = 'rgba(67, 233, 123, 0.6)';
+        uploadZone.style.background = 'rgba(67, 233, 123, 0.1)';
+      });
+      
+      uploadZone.addEventListener('dragleave', () => {
+        uploadZone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        uploadZone.style.background = 'rgba(255, 255, 255, 0.05)';
+      });
+      
+      uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        uploadZone.style.background = 'rgba(255, 255, 255, 0.05)';
+        
+        const items = Array.from(e.dataTransfer.items);
+        handleDroppedItems(items);
       });
 
       // File selection
       document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+      document.getElementById('folderInput').addEventListener('change', handleFileSelect);
 
-      // Start sending button
-      document.getElementById('startSendBtn').addEventListener('click', startSending);
+      // Start sharing button
+      document.getElementById('startSharingBtn').addEventListener('click', startSharing);
 
-      // Copy code button
-      document.getElementById('copyCodeBtn').addEventListener('click', copyRoomCode);
+      console.log('Event listeners ready');
+    }
 
-      // Connect button for receiver
-      document.getElementById('connectBtn').addEventListener('click', connectToPeer);
+    async function handleDroppedItems(items) {
+      const files = [];
+      
+      for (const item of items) {
+        const entry = item.webkitGetAsEntry();
+        if (entry) {
+          await traverseFileTree(entry, files);
+        }
+      }
+      
+      if (files.length > 0) {
+        selectedFiles = files;
+        displayFiles();
+      }
+    }
 
-      console.log('Event listeners set up');
+    async function traverseFileTree(entry, files, path = '') {
+      if (entry.isFile) {
+        const file = await new Promise(resolve => entry.file(resolve));
+        files.push(file);
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        const entries = await new Promise(resolve => reader.readEntries(resolve));
+        for (const entry of entries) {
+          await traverseFileTree(entry, files, path + entry.name + '/');
+        }
+      }
     }
 
     function handleFileSelect(e) {
-      console.log('File select triggered');
-      const file = e.target.files[0];
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
       
-      if (!file) {
-        console.log('No file selected');
-        return;
+      selectedFiles = files;
+      displayFiles();
+    }
+
+    function displayFiles() {
+      const container = document.getElementById('filesContainer');
+      const grid = document.getElementById('filesGrid');
+      const count = document.getElementById('fileCount');
+      const size = document.getElementById('totalSize');
+      
+      container.style.display = 'block';
+      document.getElementById('uploadZone').classList.add('has-files');
+      
+      // Calculate total size
+      const totalBytes = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+      count.textContent = `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''} selected`;
+      size.textContent = formatFileSize(totalBytes);
+      
+      // Display file cards
+      grid.innerHTML = '';
+      selectedFiles.forEach((file, index) => {
+        const card = createFileCard(file, index);
+        grid.appendChild(card);
+      });
+    }
+
+    function createFileCard(file, index) {
+      const card = document.createElement('div');
+      card.className = 'file-card';
+      
+      const preview = document.createElement('div');
+      preview.className = 'file-preview';
+      
+      // Try to show image preview
+      if (file.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.onload = () => URL.revokeObjectURL(img.src);
+        preview.appendChild(img);
+      } else {
+        const icon = document.createElement('div');
+        icon.className = 'file-icon-large';
+        icon.textContent = getFileIcon(file.type);
+        preview.appendChild(icon);
       }
-
-      console.log('File selected:', file.name, file.size);
-
-      const MAX_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
       
-      if (file.size > MAX_SIZE) {
-        alert('⚠️ File exceeds 5GB limit. Please choose a smaller file.');
-        return;
+      const name = document.createElement('div');
+      name.className = 'file-name';
+      name.textContent = file.name;
+      name.title = file.name;
+      
+      const sizeDiv = document.createElement('div');
+      sizeDiv.className = 'file-size';
+      sizeDiv.textContent = formatFileSize(file.size);
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-file';
+      removeBtn.innerHTML = '×';
+      removeBtn.onclick = () => removeFile(index);
+      
+      card.appendChild(preview);
+      card.appendChild(name);
+      card.appendChild(sizeDiv);
+      card.appendChild(removeBtn);
+      
+      return card;
+    }
+
+    function getFileIcon(type) {
+      if (type.startsWith('image/')) return '🖼️';
+      if (type.startsWith('video/')) return '🎥';
+      if (type.startsWith('audio/')) return '🎵';
+      if (type.includes('pdf')) return '📕';
+      if (type.includes('zip') || type.includes('rar')) return '📦';
+      if (type.includes('word') || type.includes('document')) return '📝';
+      if (type.includes('sheet') || type.includes('excel')) return '📊';
+      return '📄';
+    }
+
+    function removeFile(index) {
+      selectedFiles.splice(index, 1);
+      if (selectedFiles.length === 0) {
+        document.getElementById('filesContainer').style.display = 'none';
+        document.getElementById('uploadZone').classList.remove('has-files');
+      } else {
+        displayFiles();
       }
-
-      selectedFile = file;
-      
-      // Update UI
-      document.getElementById('uploadZone').classList.add('has-file');
-      
-      const fileDisplay = document.getElementById('fileDisplay');
-      fileDisplay.style.display = 'block';
-      fileDisplay.innerHTML = `
-        <div class="file-display">
-          <div class="file-icon-small">
-            <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
-              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-              <polyline points="13 2 13 9 20 9"></polyline>
-            </svg>
-          </div>
-          <div class="file-details">
-            <div class="file-name-display">${file.name}</div>
-            <div class="file-size-display">${formatFileSize(file.size)}</div>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('sendControls').style.display = 'block';
-      console.log('UI updated, showing send button');
-    }
-
-    function setMode(mode) {
-      console.log('Switching to mode:', mode);
-      currentMode = mode;
-      
-      document.getElementById('sendBtn').classList.toggle('active', mode === 'send');
-      document.getElementById('receiveBtn').classList.toggle('active', mode === 'receive');
-      
-      document.getElementById('sendMode').style.display = mode === 'send' ? 'block' : 'none';
-      document.getElementById('receiveMode').style.display = mode === 'receive' ? 'block' : 'none';
-
-      resetSendState();
-      resetReceiveState();
-    }
-
-    function resetSendState() {
-      document.getElementById('uploadZone').classList.remove('has-file');
-      document.getElementById('fileDisplay').style.display = 'none';
-      document.getElementById('sendControls').style.display = 'none';
-      document.getElementById('roomCodeContainer').style.display = 'none';
-      document.getElementById('sendProgress').style.display = 'none';
-      selectedFile = null;
-      if (peer) peer.destroy();
-      if (conn) conn.close();
-    }
-
-    function resetReceiveState() {
-      document.getElementById('roomInput').value = '';
-      document.getElementById('receiveStatus').innerHTML = '';
-      document.getElementById('receiveProgress').style.display = 'none';
-      receivedChunks = {};
-      currentFileMeta = null;
-      receivedSize = 0;
-      if (peer) peer.destroy();
-      if (conn) conn.close();
     }
 
     function formatFileSize(bytes) {
@@ -824,45 +1064,42 @@
       return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
     }
 
-    function generateCode() {
-      return Math.random().toString(36).substring(2, 8).toUpperCase();
-    }
-
-    function copyRoomCode() {
-      const code = document.getElementById('roomCode').textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        const btn = document.getElementById('copyCodeBtn');
-        const originalText = btn.textContent;
-        btn.textContent = '✓ Copied!';
-        setTimeout(() => {
-          btn.textContent = originalText;
-        }, 2000);
-      });
-    }
-
-    function showStatus(elementId, message, type = 'info') {
-      const statusDiv = document.getElementById(elementId);
-      statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
-    }
-
-    // SENDER LOGIC
-    function startSending() {
-      console.log('Start sending clicked');
+    function setMode(mode) {
+      currentMode = mode;
       
-      if (!selectedFile) {
-        alert('Please select a file first');
+      document.getElementById('sendBtn').classList.toggle('active', mode === 'send');
+      document.getElementById('receiveBtn').classList.toggle('active', mode === 'receive');
+      
+      document.getElementById('sendMode').style.display = mode === 'send' ? 'block' : 'none';
+      document.getElementById('receiveMode').style.display = mode === 'receive' ? 'block' : 'none';
+
+      if (mode === 'receive') {
+        startDiscovery();
+      } else {
+        stopDiscovery();
+      }
+    }
+
+    // SEND MODE FUNCTIONS
+    async function startSharing() {
+      if (selectedFiles.length === 0) {
+        alert('Please select files first');
         return;
       }
 
-      const code = generateCode();
-      console.log('Generated code:', code);
-      
-      document.getElementById('roomCode').textContent = code;
-      document.getElementById('roomCodeContainer').style.display = 'block';
-      document.getElementById('startSendBtn').disabled = true;
+      const totalSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
+      if (totalSize > 5 * 1024 * 1024 * 1024) {
+        alert('Total size exceeds 5GB limit');
+        return;
+      }
 
+      document.getElementById('startSharingBtn').disabled = true;
+      
+      // Initialize peer for sending
+      const peerId = 'sender_' + Math.random().toString(36).substr(2, 9);
+      
       try {
-        peer = new Peer(code, {
+        peer = new Peer(peerId, {
           config: {
             iceServers: [
               { urls: 'stun:stun.l.google.com:19302' },
@@ -872,56 +1109,98 @@
         });
 
         peer.on('open', () => {
-          console.log('Peer initialized successfully');
+          console.log('Sender peer ready:', peerId);
+          broadcastPresence();
         });
 
         peer.on('connection', (c) => {
           console.log('Receiver connected!');
           conn = c;
           
-          const statusDiv = document.getElementById('connectionStatus');
-          statusDiv.className = 'connection-status status-connected';
-          statusDiv.innerHTML = '<span class="status-dot"></span>Connected! Transfer starting...';
+          showBroadcastingStatus(`📡 Connected to receiver! Preparing files...`);
 
           conn.on('open', () => {
-            console.log('Connection opened, sending metadata');
-            sendMetadata();
+            sendFilesMetadata();
           });
 
           conn.on('data', handleSenderControl);
 
           conn.on('error', (err) => {
             console.error('Connection error:', err);
-            showStatus('sendProgress', '❌ Connection error: ' + err.message, 'error');
           });
         });
 
         peer.on('error', (err) => {
           console.error('Peer error:', err);
-          showStatus('sendProgress', '❌ Error: ' + err.message, 'error');
-          document.getElementById('startSendBtn').disabled = false;
+          document.getElementById('startSharingBtn').disabled = false;
         });
 
       } catch (err) {
-        console.error('Failed to create peer:', err);
-        alert('Failed to initialize connection. Please try again.');
-        document.getElementById('startSendBtn').disabled = false;
+        console.error('Failed to initialize:', err);
+        alert('Failed to start sharing. Please try again.');
+        document.getElementById('startSharingBtn').disabled = false;
       }
     }
 
-    function sendMetadata() {
-      if (!conn || !selectedFile) return;
+    function broadcastPresence() {
+      showBroadcastingStatus(`📡 Broadcasting as "${deviceName}" - Waiting for receiver...`);
+      
+      // In a real implementation, you'd broadcast to a signaling server
+      // For this demo, we'll store in a shared "room" concept using peer ID
+      localStorage.setItem('sender_' + peer.id, JSON.stringify({
+        id: peer.id,
+        name: deviceName,
+        fileCount: selectedFiles.length,
+        timestamp: Date.now()
+      }));
+    }
+
+    function showBroadcastingStatus(message) {
+      const status = document.getElementById('broadcastingStatus');
+      status.style.display = 'block';
+      status.innerHTML = `
+        <div class="broadcasting-status">
+          <span class="broadcasting-icon">📡</span>
+          <span>${message}</span>
+        </div>
+      `;
+    }
+
+    async function sendFilesMetadata() {
+      // If multiple files, we'll zip them
+      let fileToSend;
+      let fileName;
+      
+      if (selectedFiles.length === 1) {
+        fileToSend = selectedFiles[0];
+        fileName = selectedFiles[0].name;
+      } else {
+        // Zip multiple files
+        showBroadcastingStatus('📦 Zipping files...');
+        const zip = new JSZip();
+        
+        selectedFiles.forEach(file => {
+          zip.file(file.name, file);
+        });
+        
+        const blob = await zip.generateAsync({ type: 'blob' });
+        fileToSend = new File([blob], 'files.zip', { type: 'application/zip' });
+        fileName = `${selectedFiles.length}_files.zip`;
+      }
 
       const metadata = {
         type: 'meta',
-        name: selectedFile.name,
-        size: selectedFile.size,
-        mime: selectedFile.type || 'application/octet-stream',
-        fileId: selectedFile.name + '_' + selectedFile.size
+        name: fileName,
+        size: fileToSend.size,
+        mime: fileToSend.type || 'application/octet-stream',
+        fileCount: selectedFiles.length
       };
 
       conn.send(metadata);
       console.log('Metadata sent:', metadata);
+      
+      // Store file for sending
+      window.currentSendFile = fileToSend;
     }
 
     function handleSenderControl(msg) {
@@ -931,9 +1210,10 @@
     }
 
     function sendChunk(offset) {
-      if (!selectedFile) return;
+      const file = window.currentSendFile;
+      if (!file) return;
 
-      const slice = selectedFile.slice(offset, offset + chunkSize);
+      const slice = file.slice(offset, offset + chunkSize);
       const reader = new FileReader();
 
       reader.onload = (e) => {
@@ -944,20 +1224,15 @@
             offset: offset
           });
 
-          const percent = Math.min(((offset + chunkSize) / selectedFile.size) * 100, 100);
-          updateSendProgress(percent, offset + e.target.result.byteLength);
+          const percent = Math.min(((offset + chunkSize) / file.size) * 100, 100);
+          updateSendProgress(percent, offset + e.target.result.byteLength, file.size);
         }
-      };
-
-      reader.onerror = (err) => {
-        console.error('FileReader error:', err);
-        showStatus('sendProgress', '❌ Error reading file', 'error');
       };
 
       reader.readAsArrayBuffer(slice);
     }
 
-    function updateSendProgress(percent, bytes) {
+    function updateSendProgress(percent, bytes, total) {
       const progressDiv = document.getElementById('sendProgress');
       progressDiv.style.display = 'block';
 
@@ -973,30 +1248,106 @@
             <div class="progress-bar" style="width: ${percent}%"></div>
           </div>
           <div class="progress-speed">
-            ${formatFileSize(bytes)} / ${formatFileSize(selectedFile.size)}
+            ${formatFileSize(bytes)} / ${formatFileSize(total)}
           </div>
         </div>
       `;
 
       if (percentRounded >= 100) {
         setTimeout(() => {
-          showStatus('sendProgress', '✅ Transfer complete!', 'success');
+          progressDiv.innerHTML = '<div class="status-message status-success">✅ Transfer complete!</div>';
         }, 500);
       }
     }
 
-    // RECEIVER LOGIC
-    function connectToPeer() {
-      const code = document.getElementById('roomInput').value.trim().toUpperCase();
+    // RECEIVE MODE FUNCTIONS
+    function startDiscovery() {
+      console.log('Starting device discovery...');
       
-      if (!code || code.length < 5) {
-        showStatus('receiveStatus', '⚠️ Please enter a valid room code', 'error');
-        return;
+      // Check for available senders periodically
+      scanForDevices();
+      scanInterval = setInterval(scanForDevices, 2000);
+    }
+
+    function stopDiscovery() {
+      if (scanInterval) {
+        clearInterval(scanInterval);
+        scanInterval = null;
       }
+      availableDevices.clear();
+    }
 
-      console.log('Connecting to peer:', code);
-      showStatus('receiveStatus', '🔄 Connecting...', 'info');
+    function scanForDevices() {
+      const deviceList = document.getElementById('deviceList');
+      const now = Date.now();
+      const devices = [];
+      
+      // Scan localStorage for active senders (in real app, this would be a signaling server)
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith('sender_')) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key));
+            // Only show devices from last 30 seconds
+            if (now - data.timestamp < 30000) {
+              devices.push(data);
+            } else {
+              localStorage.removeItem(key); // Clean up old entries
+            }
+          } catch (e) {
+            // Invalid data, skip
+          }
+        }
+      }
+      
+      if (devices.length === 0) {
+        deviceList.innerHTML = `
+          <div class="empty-devices">
+            <div class="empty-icon">📡</div>
+            <div class="empty-text">No devices found</div>
+            <div class="empty-subtext">Waiting for someone to start sharing...</div>
+          </div>
+        `;
+      } else {
+        deviceList.innerHTML = '';
+        devices.forEach(device => {
+          const item = createDeviceItem(device);
+          deviceList.appendChild(item);
+        });
+      }
+    }
 
+    function createDeviceItem(device) {
+      const item = document.createElement('div');
+      item.className = 'device-item';
+      item.onclick = () => connectToDevice(device);
+      
+      const iconMap = {
+        Laptop: '💻',
+        Desktop: '🖥️',
+        Phone: '📱',
+        Tablet: '📲',
+        Computer: '💻'
+      };
+      
+      const iconEmoji = Object.keys(iconMap).find(key => device.name.includes(key));
+      const icon = iconEmoji ? iconMap[iconEmoji] : '📱';
+      
+      item.innerHTML = `
+        <div class="device-icon">${icon}</div>
+        <div class="device-info">
+          <div class="device-name">${device.name}</div>
+          <div class="device-status">${device.fileCount} file${device.fileCount !== 1 ? 's' : ''} ready</div>
+        </div>
+        <div class="connect-arrow">→</div>
+      `;
+      
+      return item;
+    }
+
+    function connectToDevice(device) {
+      console.log('Connecting to:', device.name);
+      
       try {
         peer = new Peer({
           config: {
@@ -1009,11 +1360,11 @@
 
         peer.on('open', () => {
           console.log('Receiver peer opened');
-          conn = peer.connect(code);
+          conn = peer.connect(device.id);
 
           conn.on('open', () => {
             console.log('Connected to sender');
-            showStatus('receiveStatus', '✅ Connected! Waiting for file...', 'success');
+            showStatus('Connected to ' + device.name + '! Receiving files...', 'success');
             startTime = Date.now();
           });
 
@@ -1021,23 +1372,24 @@
 
           conn.on('error', (err) => {
             console.error('Connection error:', err);
-            showStatus('receiveStatus', '❌ Connection failed. Check the code and try again.', 'error');
+            showStatus('Connection failed. Please try again.', 'error');
           });
         });
 
         peer.on('error', (err) => {
           console.error('Peer error:', err);
-          if (err.type === 'peer-unavailable') {
-            showStatus('receiveStatus', '❌ Room not found. Make sure the sender has started.', 'error');
-          } else {
-            showStatus('receiveStatus', '❌ Connection error: ' + err.message, 'error');
-          }
+          showStatus('Failed to connect to ' + device.name, 'error');
         });
 
       } catch (err) {
-        console.error('Failed to create receiver peer:', err);
-        showStatus('receiveStatus', '❌ Failed to connect. Please try again.', 'error');
+        console.error('Failed to connect:', err);
+        showStatus('Connection error. Please try again.', 'error');
       }
+    }
+
+    function showStatus(message, type) {
+      const deviceList = document.getElementById('deviceList');
+      deviceList.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
     }
 
     function handleReceiver(msg) {
@@ -1046,9 +1398,7 @@
         receivedChunks = {};
         receivedSize = 0;
         
-        console.log('Received metadata:', msg);
-        showStatus('receiveStatus', `📥 Receiving: ${msg.name} (${formatFileSize(msg.size)})`, 'info');
-        
+        console.log('Receiving:', msg.name);
         requestNextChunk(0);
       }
 
@@ -1087,7 +1437,7 @@
       progressDiv.innerHTML = `
         <div class="progress-section">
           <div class="progress-header">
-            <span class="progress-label">Receiving...</span>
+            <span class="progress-label">Receiving ${currentFileMeta.name}...</span>
             <span class="progress-percent">${percentRounded}%</span>
           </div>
           <div class="progress-bar-container">
@@ -1113,8 +1463,6 @@
           type: currentFileMeta.mime || 'application/octet-stream' 
         });
 
-        console.log('File assembled:', blob.size, 'bytes, type:', blob.type);
-
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -1125,16 +1473,18 @@
         
         setTimeout(() => URL.revokeObjectURL(url), 100);
 
-        const progressDiv = document.getElementById('receiveProgress');
-        progressDiv.innerHTML = `
+        document.getElementById('receiveProgress').innerHTML = `
           <div class="status-message status-success">
-            ✅ Download complete! Check your downloads folder for: <strong>${currentFileMeta.name}</strong>
+            ✅ Download complete! <strong>${currentFileMeta.name}</strong>
+            ${currentFileMeta.fileCount > 1 ? '<br>Extract the ZIP to access all files' : ''}
           </div>
         `;
 
       } catch (err) {
         console.error('Error assembling file:', err);
-        showStatus('receiveProgress', '❌ Error assembling file. Please try again.', 'error');
+        document.getElementById('receiveProgress').innerHTML = `
+          <div class="status-message status-error">❌ Error downloading file</div>
+        `;
       }
     }
   </script>
