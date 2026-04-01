@@ -23,8 +23,8 @@
 <h3>📡 Devices</h3>
 <ul id="deviceList"></ul>
 
-<script>
 /* ================= FIREBASE CONFIG ================= */
+// ✅ FIXED - Correct Europe database URL!
 const firebaseConfig = {
   apiKey: "AIzaSyDmc2QfJqqHacK8Lk81RwZwPiHpYsVm5OQ",
   authDomain: "transfiles-shahrozedebug.firebaseapp.com",
@@ -32,53 +32,83 @@ const firebaseConfig = {
   projectId: "transfiles-shahrozedebug",
   storageBucket: "transfiles-shahrozedebug.firebasestorage.app",
   messagingSenderId: "829432211951",
-  appId: "1:829432211951:web:0328024b237a0d0737ae1a"
+  appId: "1:829432211951:web:0328024b237a0d0737ae1a",
+  measurementId: "G-TYTLCDCQDX"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* ================= GLOBAL VARIABLES ================= */
-let myPeerId = null;
+/* ================= GLOBAL STATE ================= */
+let peer, conn;
+let myPeerId;
+let deviceName = '';
 let selectedFiles = [];
-let connections = {};
-let deviceName = "Device-" + Math.floor(Math.random() * 1000);
+let currentMode = 'send';
+
+// Receiver state
+let receivedChunks = [];
+let currentFileMeta = null;
+let receivedSize = 0;
+let startTime = 0;
+
+const CHUNK_SIZE = 256 * 1024;
+
+/* ================= INITIALIZATION ================= */
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('🚀 Initializing Transfer App...');
+  setupDeviceName();
+  setupEventListeners();
+  initializePeer();
+});
+
+function setupDeviceName() {
+  let saved = localStorage.getItem('deviceName');
+  if (!saved) {
+    const devices = ['Laptop', 'Desktop', 'Phone', 'Tablet', 'Computer'];
+    const adjectives = ['Cool', 'Fast', 'Super', 'Smart', 'Pro'];
+    saved = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${devices[Math.floor(Math.random() * devices.length)]}`;
+  }
+
+  deviceName = saved;
+  document.getElementById('deviceNameInput').value = deviceName;
+
+  document.getElementById('deviceNameInput').addEventListener('change', function(e) {
+    deviceName = e.target.value || 'My Device';
+    localStorage.setItem('deviceName', deviceName);
+    if (myPeerId) registerDevice();
+  });
+}
 
 /* ================= PEER SETUP ================= */
-const peer = new Peer();
-
-peer.on('open', (id) => {
-  myPeerId = id;
-  console.log("🟢 My Peer ID:", id);
-  registerDevice();
-});
-
-peer.on('connection', (conn) => {
-  console.log("🔗 Incoming connection:", conn.peer);
-
-  conn.on('data', (data) => {
-    console.log("📥 Received:", data);
-
-    if (data.file) {
-      const blob = new Blob([data.file]);
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = data.name;
-      a.click();
+function initializePeer() {
+  peer = new Peer({
+    config: {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" }
+      ]
     }
   });
-});
 
-/* ================= FILE INPUT ================= */
-document.getElementById("fileInput").addEventListener("change", (e) => {
-  selectedFiles = Array.from(e.target.files);
-});
+  peer.on("open", (id) => {
+    myPeerId = id;
+    console.log('✅ Peer ready:', id);
+    registerDevice();
+  });
 
-/* ================= REGISTER DEVICE ================= */
+  peer.on("connection", (c) => {
+    conn = c;
+    setupConnection();
+  });
+}
+
+/* ================= FIXED FUNCTION ================= */
 function registerDevice() {
-  if (!myPeerId) return;
+  if (!myPeerId) {
+    console.warn('⚠️ Cannot register device - peer not ready yet');
+    return;
+  }
 
   const deviceData = {
     id: myPeerId,
@@ -87,30 +117,57 @@ function registerDevice() {
     timestamp: Date.now()
   };
 
+  console.log('📝 Registering device in Firebase:', deviceData);
+
   db.ref("devices/" + myPeerId)
     .set(deviceData)
-    .then(() => console.log("✅ Device registered"))
-    .catch((err) => console.error("❌ Firebase error:", err));
+    .then(() => {
+      console.log('✅ Device registered successfully! Files:', selectedFiles.length);
+    })
+    .catch((error) => {
+      console.error('❌ Firebase registration error:', error);
+    });
 }
 
 /* ================= DISCOVERY ================= */
-db.ref("devices").on("value", (snapshot) => {
-  const devices = snapshot.val() || {};
-  const list = document.getElementById("deviceList");
-  list.innerHTML = "";
+function startDiscovery() {
+  db.ref("devices").on("value", snap => {
+    const data = snap.val() || {};
+    const deviceList = document.getElementById('deviceList');
+    deviceList.innerHTML = '';
 
-  Object.values(devices).forEach(device => {
-    if (device.id === myPeerId) return;
+    const now = Date.now();
+    const devices = [];
 
-    const li = document.createElement("li");
-    li.textContent = device.name + " (" + device.fileCount + " files)";
-    
-    li.onclick = () => connectToDevice(device.id);
+    Object.values(data).forEach(d => {
+      if (d.id === myPeerId) return;
+      if (now - d.timestamp > 60000) return;
+      devices.push(d);
+    });
 
-    list.appendChild(li);
+    if (devices.length === 0) {
+      deviceList.innerHTML = `
+        <div class="empty-devices">
+          <div class="empty-icon">📡</div>
+          <div>No devices found</div>
+        </div>`;
+    } else {
+      devices.forEach(device => {
+        const item = document.createElement('div');
+        item.className = 'device-item';
+        item.innerHTML = `
+          <div class="device-icon">📱</div>
+          <div class="device-info">
+            <div class="device-name">${device.name}</div>
+            <div class="device-status">${device.fileCount} files ready</div>
+          </div>`;
+        item.onclick = () => connectToDevice(device.id);
+        deviceList.appendChild(item);
+      });
+    }
   });
-});
-
+}
+</script>
 /* ================= CONNECT ================= */
 function connectToDevice(peerId) {
   if (connections[peerId]) return;
