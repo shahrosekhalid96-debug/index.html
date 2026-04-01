@@ -1,1249 +1,261 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Transfer - Instant P2P File Sharing</title>
-  <meta name="description" content="Share files instantly across devices with auto-discovery. No codes, just click!">
-  
-  <!-- Libraries -->
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-      min-height: 100vh;
-      color: white;
-      overflow-x: hidden;
-    }
-
-    .app-container {
-      position: relative;
-      min-height: 100vh;
-    }
-
-    .bg-decoration {
-      position: fixed;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-      pointer-events: none;
-      overflow: hidden;
-      z-index: 0;
-    }
-
-    .floating-orb {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.15;
-      animation: float 20s ease-in-out infinite;
-    }
-
-    .orb-1 {
-      width: 500px;
-      height: 500px;
-      background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
-      top: -200px;
-      left: -200px;
-    }
-
-    .orb-2 {
-      width: 400px;
-      height: 400px;
-      background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
-      bottom: -150px;
-      right: -150px;
-      animation-delay: -7s;
-    }
-
-    .orb-3 {
-      width: 350px;
-      height: 350px;
-      background: linear-gradient(45deg, #43e97b 0%, #38f9d7 100%);
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      animation-delay: -14s;
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translate(0, 0) scale(1); }
-      25% { transform: translate(100px, -100px) scale(1.1); }
-      50% { transform: translate(-50px, 50px) scale(0.9); }
-      75% { transform: translate(-100px, -50px) scale(1.05); }
-    }
-
-    .content {
-      position: relative;
-      z-index: 1;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 40px 20px;
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: 40px;
-      animation: fadeInDown 0.8s ease-out;
-    }
-
-    @keyframes fadeInDown {
-      from { opacity: 0; transform: translateY(-30px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .logo {
-      font-size: 48px;
-      font-weight: 700;
-      background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 12px;
-      letter-spacing: -1px;
-    }
-
-    .tagline {
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 16px;
-      font-weight: 300;
-      margin-bottom: 20px;
-    }
-
-    .device-name-setup {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 12px 20px;
-      border-radius: 12px;
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      margin-top: 10px;
-    }
-
-    .device-name-input {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: white;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      width: 200px;
-    }
-
-    .device-name-input:focus {
-      outline: none;
-      border-color: rgba(255, 255, 255, 0.4);
-    }
-
-    .device-name-input::placeholder {
-      color: rgba(255, 255, 255, 0.4);
-    }
-
-    .mode-tabs {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      margin-bottom: 30px;
-      animation: fadeInUp 0.8s ease-out 0.1s both;
-    }
-
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(30px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .tab-button {
-      background: rgba(255, 255, 255, 0.05);
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      color: rgba(255, 255, 255, 0.7);
-      padding: 14px 32px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-size: 15px;
-      font-weight: 500;
-      transition: all 0.3s ease;
-    }
-
-    .tab-button:hover {
-      background: rgba(255, 255, 255, 0.1);
-      transform: translateY(-2px);
-    }
-
-    .tab-button.active {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-color: transparent;
-      color: white;
-      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
-    }
-
-    .upload-zone {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(20px);
-      border: 2px dashed rgba(255, 255, 255, 0.2);
-      border-radius: 24px;
-      padding: 50px 30px;
-      text-align: center;
-      transition: all 0.3s ease;
-      cursor: pointer;
-      margin-bottom: 25px;
-    }
-
-    .upload-zone:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.4);
-      transform: translateY(-4px);
-    }
-
-    .upload-zone.has-files {
-      border-color: rgba(67, 233, 123, 0.5);
-      background: rgba(67, 233, 123, 0.05);
-    }
-
-    .upload-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-      opacity: 0.6;
-    }
-
-    .upload-text {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .upload-subtext {
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 14px;
-      margin-bottom: 20px;
-    }
-
-    .file-type-buttons {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .file-type-button {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: rgba(255, 255, 255, 0.8);
-      padding: 10px 20px;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 13px;
-      transition: all 0.2s ease;
-    }
-
-    .file-type-button:hover {
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    input[type="file"] {
-      display: none;
-    }
-
-    .files-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 14px;
-      margin: 20px 0;
-    }
-
-    .file-card {
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(20px);
-      border-radius: 12px;
-      padding: 14px;
-      transition: all 0.3s ease;
-      position: relative;
-      animation: slideIn 0.3s ease-out;
-    }
-
-    @keyframes slideIn {
-      from { opacity: 0; transform: scale(0.9); }
-      to { opacity: 1; transform: scale(1); }
-    }
-
-    .file-card:hover {
-      background: rgba(255, 255, 255, 0.12);
-      transform: translateY(-4px);
-    }
-
-    .file-preview {
-      width: 100%;
-      height: 100px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 10px;
-      overflow: hidden;
-    }
-
-    .file-preview img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .file-icon-large {
-      font-size: 36px;
-      opacity: 0.5;
-    }
-
-    .file-name {
-      color: #fff;
-      font-size: 12px;
-      font-weight: 500;
-      margin-bottom: 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .file-size {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 11px;
-    }
-
-    .remove-file {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      background: rgba(255, 0, 0, 0.8);
-      border: none;
-      color: white;
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.2s;
-      font-size: 14px;
-    }
-
-    .file-card:hover .remove-file {
-      opacity: 1;
-    }
-
-    .files-summary {
-      background: rgba(255, 255, 255, 0.08);
-      padding: 14px 18px;
-      border-radius: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 18px;
-    }
-
-    .action-button {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      padding: 16px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
-      width: 100%;
-      margin-bottom: 20px;
-    }
-
-    .action-button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
-    }
-
-    .action-button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .devices-section {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(20px);
-      border-radius: 24px;
-      padding: 28px;
-    }
-
-    .devices-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-
-    .devices-title {
-      font-size: 20px;
-      font-weight: 600;
-    }
-
-    .scanning-indicator {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 13px;
-    }
-
-    .scanning-dot {
-      width: 8px;
-      height: 8px;
-      background: #4facfe;
-      border-radius: 50%;
-      animation: pulse-scan 1.5s ease-in-out infinite;
-    }
-
-    @keyframes pulse-scan {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.3; transform: scale(0.8); }
-    }
-
-    .device-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .device-item {
-      background: rgba(255, 255, 255, 0.05);
-      border: 2px solid rgba(255, 255, 255, 0.1);
-      border-radius: 14px;
-      padding: 16px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      transition: all 0.3s ease;
-      cursor: pointer;
-      animation: deviceSlideIn 0.4s ease-out;
-    }
-
-    @keyframes deviceSlideIn {
-      from { opacity: 0; transform: translateX(-20px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    .device-item:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(102, 126, 234, 0.5);
-      transform: translateX(4px);
-    }
-
-    .device-icon {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      flex-shrink: 0;
-    }
-
-    .device-info {
-      flex: 1;
-    }
-
-    .device-name {
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .device-status {
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 12px;
-    }
-
-    .connect-arrow {
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 18px;
-    }
-
-    .empty-devices {
-      text-align: center;
-      padding: 50px 20px;
-      color: rgba(255, 255, 255, 0.4);
-    }
-
-    .empty-icon {
-      font-size: 48px;
-      margin-bottom: 14px;
-      opacity: 0.3;
-    }
-
-    .broadcasting-status {
-      background: rgba(67, 233, 123, 0.1);
-      border: 1px solid rgba(67, 233, 123, 0.3);
-      color: #43e97b;
-      padding: 14px 20px;
-      border-radius: 12px;
-      text-align: center;
-      margin-bottom: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .progress-section {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(20px);
-      border-radius: 14px;
-      padding: 20px;
-      margin-bottom: 18px;
-    }
-
-    .progress-header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-
-    .progress-bar-container {
-      width: 100%;
-      height: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 10px;
-    }
-
-    .progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-      width: 0%;
-      transition: width 0.3s ease;
-      position: relative;
-    }
-
-    .progress-bar::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-      animation: shimmer 1.5s infinite;
-    }
-
-    @keyframes shimmer {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(100%); }
-    }
-
-    .status-message {
-      text-align: center;
-      padding: 14px;
-      border-radius: 12px;
-      margin-bottom: 18px;
-      font-size: 14px;
-    }
-
-    .status-success {
-      background: rgba(67, 233, 123, 0.1);
-      border: 1px solid rgba(67, 233, 123, 0.3);
-      color: #43e97b;
-    }
-
-    .status-error {
-      background: rgba(255, 107, 107, 0.1);
-      border: 1px solid rgba(255, 107, 107, 0.3);
-      color: #ff6b6b;
-    }
-
-    .qr-section {
-      background: rgba(255, 255, 255, 0.05);
-      padding: 20px;
-      border-radius: 14px;
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    #qrcode {
-      display: inline-block;
-      padding: 10px;
-      background: white;
-      border-radius: 8px;
-      margin-top: 10px;
-    }
-
-    @media (max-width: 768px) {
-      .content {
-        padding: 30px 16px;
-      }
-
-      .logo {
-        font-size: 36px;
-      }
-
-      .upload-zone {
-        padding: 40px 20px;
-      }
-
-      .files-grid {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      }
-
-      .device-name-input {
-        width: 150px;
-      }
-
-      .mode-tabs {
-        flex-direction: column;
-      }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TransferX - Free File Sharing</title>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<style>
+body { font-family: Arial; text-align: center; padding: 20px; background:#0f172a; color:white; }
+button { padding:12px 20px; margin:10px; border-radius:10px; border:none; cursor:pointer; }
+.card { background:#1e293b; padding:20px; border-radius:12px; margin:10px auto; max-width:400px; }
+#devices button { display:block; width:100%; margin:5px 0; }
+progress { width:100%; }
+</style>
 </head>
+
 <body>
-  <div class="app-container">
-    <div class="bg-decoration">
-      <div class="floating-orb orb-1"></div>
-      <div class="floating-orb orb-2"></div>
-      <div class="floating-orb orb-3"></div>
-    </div>
 
-    <div class="content">
-      <div class="header">
-        <h1 class="logo">📡 Transfer</h1>
-        <p class="tagline">Instant file sharing across devices</p>
-        <div class="device-name-setup">
-          <span style="opacity: 0.7;">📱 Sharing as:</span>
-          <input 
-            type="text" 
-            id="deviceNameInput" 
-            class="device-name-input" 
-            placeholder="My Device"
-          />
-        </div>
-      </div>
+<h2>🚀 TransferX</h2>
 
-      <div class="mode-tabs">
-        <button class="tab-button active" id="sendBtn">📤 Send Files</button>
-        <button class="tab-button" id="receiveBtn">📥 Receive Files</button>
-      </div>
+<div class="card">
+<input type="file" id="fileInput" multiple>
+<br>
+<button onclick="startSharing()">Start Sharing</button>
+<button onclick="startDiscovery()">Find Devices</button>
+</div>
 
-      <!-- SEND MODE -->
-      <div id="sendMode">
-        <div class="upload-zone" id="uploadZone">
-          <div class="upload-icon">📁</div>
-          <h2 class="upload-text">Drop files or folders here</h2>
-          <p class="upload-subtext">or choose from options below</p>
-          <div class="file-type-buttons">
-            <button class="file-type-button" id="selectFilesBtn">📄 Select Files</button>
-            <button class="file-type-button" id="selectFolderBtn">📁 Select Folder</button>
-          </div>
-        </div>
-        
-        <input type="file" id="fileInput" multiple />
-        <input type="file" id="folderInput" webkitdirectory directory multiple />
+<div class="card">
+<h3>QR Code</h3>
+<div id="qr"></div>
+</div>
 
-        <div id="filesContainer" style="display: none;">
-          <div class="files-summary">
-            <span id="fileCount">0 files</span>
-            <span id="totalSize" style="font-weight: 600;">0 MB</span>
-          </div>
-          <div class="files-grid" id="filesGrid"></div>
-          <button class="action-button" id="startSharingBtn">🚀 Start Sharing</button>
-        </div>
+<div class="card">
+<h3>Nearby Devices</h3>
+<div id="devices"></div>
+</div>
 
-        <div id="qrSection" style="display: none;" class="qr-section">
-          <div style="font-size: 14px; opacity: 0.7; margin-bottom: 10px;">Scan to connect from mobile:</div>
-          <div id="qrcode"></div>
-        </div>
+<div class="card">
+<h3>Status</h3>
+<div id="status">Idle</div>
+<progress id="progress" value="0" max="100"></progress>
+</div>
 
-        <div id="broadcastingStatus" style="display: none;"></div>
-        <div id="sendProgress" style="display: none;"></div>
-      </div>
+<script>
+/* ================= CONFIG ================= */
 
-      <!-- RECEIVE MODE -->
-      <div id="receiveMode" style="display: none;">
-        <div class="devices-section">
-          <div class="devices-header">
-            <h3 class="devices-title">Available Devices</h3>
-            <div class="scanning-indicator">
-              <div class="scanning-dot"></div>
-              <span>Scanning...</span>
-            </div>
-          </div>
-          <div class="device-list" id="deviceList">
-            <div class="empty-devices">
-              <div class="empty-icon">📡</div>
-              <div>Looking for devices...</div>
-            </div>
-          </div>
-        </div>
+const firebaseConfig = {
+  apiKey: "AIzaSyDmc2QfJqqHacK8Lk81RwZwPiHpYsVm5OQ",
+  authDomain: "transfiles-shahrozedebug.firebaseapp.com",
+  databaseURL: "https://transfiles-shahrozedebug-default-rtdb.firebaseio.com",
+  projectId: "transfiles-shahrozedebug"
+};
 
-        <div id="receiveProgress" style="display: none;"></div>
-      </div>
-    </div>
-  </div>
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-  <script>
-    /* ================= FIREBASE CONFIG ================= */
-    // ✅ FIXED - Correct Europe database URL!
-    const firebaseConfig = {
-      apiKey: "AIzaSyDmc2QfJqqHacK8Lk81RwZwPiHpYsVm5OQ",
-      authDomain: "transfiles-shahrozedebug.firebaseapp.com",
-      databaseURL: "https://transfiles-shahrozedebug-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "transfiles-shahrozedebug",
-      storageBucket: "transfiles-shahrozedebug.firebasestorage.app",
-      messagingSenderId: "829432211951",
-      appId: "1:829432211951:web:0328024b237a0d0737ae1a",
-      measurementId: "G-TYTLCDCQDX"
+/* ================= GLOBALS ================= */
+
+let peer, conn;
+let myId;
+let selectedFiles = [];
+let receivedChunks = [];
+let receivedMeta = null;
+
+const CHUNK_SIZE = 64 * 1024;
+
+/* ================= PEER ================= */
+
+peer = new Peer({
+  config: {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      {
+        urls: "turn:openrelay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      }
+    ]
+  }
+});
+
+peer.on("open", id => {
+  myId = id;
+  setStatus("Your ID: " + id);
+  registerDevice();
+});
+
+peer.on("connection", c => {
+  conn = c;
+  setupConnection();
+});
+
+/* ================= FILE SELECT ================= */
+
+document.getElementById("fileInput").addEventListener("change", e => {
+  selectedFiles = [...e.target.files];
+});
+
+/* ================= SHARING ================= */
+
+function startSharing() {
+  if (selectedFiles.length === 0) return alert("Select files first");
+
+  db.ref("devices/" + myId).update({
+    fileCount: selectedFiles.length,
+    timestamp: Date.now()
+  });
+
+  generateQR();
+  setStatus("📡 Waiting for receiver...");
+}
+
+/* ================= DISCOVERY ================= */
+
+function startDiscovery() {
+  db.ref("devices").on("value", snap => {
+    let data = snap.val();
+    let div = document.getElementById("devices");
+    div.innerHTML = "";
+
+    for (let id in data) {
+      if (id === myId) continue;
+
+      let btn = document.createElement("button");
+      btn.innerText = `Device (${data[id].fileCount || 0} files)`;
+      btn.onclick = () => connectTo(id);
+      div.appendChild(btn);
+    }
+  });
+}
+
+/* ================= CONNECTION ================= */
+
+function connectTo(id) {
+  conn = peer.connect(id);
+  setupConnection();
+}
+
+function setupConnection() {
+  conn.on("open", () => {
+    setStatus("✅ Connected");
+
+    conn.send({ type: "ready" });
+  });
+
+  conn.on("data", handleData);
+}
+
+/* ================= SEND ================= */
+
+async function sendFiles() {
+  for (let file of selectedFiles) {
+    await sendFile(file);
+  }
+  conn.send({ type: "done" });
+}
+
+function sendFile(file) {
+  return new Promise(resolve => {
+    let offset = 0;
+    const reader = new FileReader();
+
+    conn.send({ type:"meta", name:file.name, size:file.size });
+
+    reader.onload = e => {
+      conn.send({ type:"chunk", data:e.target.result });
+
+      offset += e.target.result.byteLength;
+      updateProgress(offset, file.size);
+
+      if (offset < file.size) {
+        readSlice(offset);
+      } else {
+        conn.send({ type:"end" });
+        resolve();
+      }
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    function readSlice(o) {
+      reader.readAsArrayBuffer(file.slice(o, o + CHUNK_SIZE));
+    }
 
-    /* ================= GLOBAL STATE ================= */
-    let peer, conn;
-    let myPeerId;
-    let deviceName = '';
-    let selectedFiles = [];
-    let currentMode = 'send';
-    
-    // Receiver state
-    let receivedChunks = [];
-    let currentFileMeta = null;
-    let receivedSize = 0;
-    let startTime = 0;
-    const CHUNK_SIZE = 256 * 1024;
+    readSlice(0);
+  });
+}
 
-    /* ================= INITIALIZATION ================= */
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('🚀 Initializing Transfer App...');
-      setupDeviceName();
-      setupEventListeners();
-      initializePeer();
+/* ================= RECEIVE ================= */
+
+function handleData(data) {
+
+  if (data.type === "ready") {
+    sendFiles();
+  }
+
+  if (data.type === "meta") {
+    receivedChunks = [];
+    receivedMeta = data;
+    setStatus("Receiving: " + data.name);
+  }
+
+  if (data.type === "chunk") {
+    receivedChunks.push(data.data);
+  }
+
+  if (data.type === "end") {
+    let blob = new Blob(receivedChunks);
+    let a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = receivedMeta.name;
+    a.click();
+  }
+
+  if (data.type === "done") {
+    setStatus("✅ All files received");
+  }
+}
+
+/* ================= HELPERS ================= */
+
+function updateProgress(sent, total) {
+  document.getElementById("progress").value = (sent / total) * 100;
+}
+
+function setStatus(msg) {
+  document.getElementById("status").innerText = msg;
+}
+
+function generateQR() {
+  document.getElementById("qr").innerText = myId;
+}
+
+/* ================= FIREBASE ================= */
+
+function registerDevice() {
+  const ref = db.ref("devices/" + myId);
+
+  ref.set({
+    id: myId,
+    fileCount: 0,
+    timestamp: Date.now()
+  });
+
+  ref.onDisconnect().remove();
+}
+
+setInterval(() => {
+  if (myId) {
+    db.ref("devices/" + myId).update({
+      timestamp: Date.now(),
+      fileCount: selectedFiles.length
     });
+  }
+}, 5000);
 
-    function setupDeviceName() {
-      let saved = localStorage.getItem('deviceName');
-      if (!saved) {
-        const devices = ['Laptop', 'Desktop', 'Phone', 'Tablet', 'Computer'];
-        const adjectives = ['Cool', 'Fast', 'Super', 'Smart', 'Pro'];
-        saved = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${devices[Math.floor(Math.random() * devices.length)]}`;
-      }
-      deviceName = saved;
-      document.getElementById('deviceNameInput').value = deviceName;
-      
-      document.getElementById('deviceNameInput').addEventListener('change', function(e) {
-        deviceName = e.target.value || 'My Device';
-        localStorage.setItem('deviceName', deviceName);
-        if (myPeerId) {
-          registerDevice();
-        }
-      });
-    }
-
-    function setupEventListeners() {
-      // Mode switching
-      document.getElementById('sendBtn').addEventListener('click', () => setMode('send'));
-      document.getElementById('receiveBtn').addEventListener('click', () => setMode('receive'));
-
-      // Upload zone
-      const uploadZone = document.getElementById('uploadZone');
-      
-      uploadZone.addEventListener('click', () => {
-        document.getElementById('fileInput').click();
-      });
-      
-      document.getElementById('selectFilesBtn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.getElementById('fileInput').click();
-      });
-      
-      document.getElementById('selectFolderBtn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.getElementById('folderInput').click();
-      });
-
-      // Drag and drop
-      uploadZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        uploadZone.style.borderColor = 'rgba(67, 233, 123, 0.6)';
-      });
-      
-      uploadZone.addEventListener('dragleave', () => {
-        uploadZone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-      });
-      
-      uploadZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        uploadZone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-        const files = Array.from(e.dataTransfer.files);
-        handleFiles(files);
-      });
-
-      // File selection
-      document.getElementById('fileInput').addEventListener('change', (e) => {
-        handleFiles(Array.from(e.target.files));
-      });
-      
-      document.getElementById('folderInput').addEventListener('change', (e) => {
-        handleFiles(Array.from(e.target.files));
-      });
-
-      // Start sharing
-      document.getElementById('startSharingBtn').addEventListener('click', startSharing);
-    }
-
-    /* ================= PEER SETUP ================= */
-    function initializePeer() {
-      peer = new Peer({
-        config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" }
-          ],
-          iceCandidatePoolSize: 10
-        }
-      });
-
-      peer.on("open", (id) => {
-        myPeerId = id;
-        console.log('✅ Peer ready:', id);
-        registerDevice();
-        
-        // Generate QR code with peer ID
-        const qrSection = document.getElementById('qrSection');
-        const qrDiv = document.getElementById('qrcode');
-        qrDiv.innerHTML = '';
-        new QRCode(qrDiv, {
-          text: window.location.href + '?peer=' + id,
-          width: 150,
-          height: 150
-        });
-      });
-
-      peer.on("connection", (c) => {
-        console.log('📱 Receiver connected!');
-        conn = c;
-        setupConnection();
-      });
-
-      peer.on("error", (err) => {
-        console.error('❌ Peer error:', err);
-      });
-
-      // Cleanup on exit
-      window.addEventListener("beforeunload", () => {
-        if (myPeerId) {
-          db.ref("devices/" + myPeerId).remove();
-        }
-      });
-    }
-
-    function registerDevice() {
-      db.ref("devices/" + myPeerId).set({
-        id: myPeerId,
-        name: deviceName,
-        fileCount: selectedFiles.length,
-        timestamp: Date.now()
-      });
-    }
-
-    /* ================= DEVICE DISCOVERY ================= */
-    function startDiscovery() {
-      db.ref("devices").on("value", snap => {
-        const data = snap.val() || {};
-        const deviceList = document.getElementById('deviceList');
-        deviceList.innerHTML = '';
-
-        const now = Date.now();
-        const devices = [];
-
-        Object.values(data).forEach(d => {
-          if (d.id === myPeerId) return;
-          if (now - d.timestamp > 60000) return;
-          devices.push(d);
-        });
-
-        if (devices.length === 0) {
-          deviceList.innerHTML = `
-            <div class="empty-devices">
-              <div class="empty-icon">📡</div>
-              <div>No devices found</div>
-              <div style="font-size: 12px; margin-top: 8px; opacity: 0.6;">
-                Waiting for someone to start sharing...
-              </div>
-            </div>
-          `;
-        } else {
-          devices.forEach(device => {
-            const item = createDeviceItem(device);
-            deviceList.appendChild(item);
-          });
-        }
-      });
-    }
-
-    function stopDiscovery() {
-      db.ref("devices").off("value");
-    }
-
-    function createDeviceItem(device) {
-      const item = document.createElement('div');
-      item.className = 'device-item';
-      item.onclick = () => connectToDevice(device.id);
-      
-      const iconMap = {
-        Laptop: '💻', Desktop: '🖥️', Phone: '📱',
-        Tablet: '📲', Computer: '💻'
-      };
-      
-      const iconEmoji = Object.keys(iconMap).find(key => device.name.includes(key));
-      const icon = iconEmoji ? iconMap[iconEmoji] : '📱';
-      
-      item.innerHTML = `
-        <div class="device-icon">${icon}</div>
-        <div class="device-info">
-          <div class="device-name">${device.name}</div>
-          <div class="device-status">${device.fileCount || 0} file${device.fileCount !== 1 ? 's' : ''} ready</div>
-        </div>
-        <div class="connect-arrow">→</div>
-      `;
-      
-      return item;
-    }
-
-    function connectToDevice(peerId) {
-      console.log('🔗 Connecting to:', peerId);
-      conn = peer.connect(peerId);
-      setupConnection();
-    }
-
-    function setupConnection() {
-      conn.on("open", () => {
-        console.log('✅ Connected!');
-        if (currentMode === 'send') {
-          showBroadcastingStatus('✅ Receiver connected! Sending files...');
-          setTimeout(sendFiles, 500);
-        } else {
-          showStatus('Connected! Waiting for files...', 'success');
-        }
-      });
-
-      conn.on("data", handleReceivedData);
-
-      conn.on("error", (err) => {
-        console.error('Connection error:', err);
-        showStatus('Connection failed. Please try again.', 'error');
-      });
-    }
-
-    /* ================= FILE HANDLING ================= */
-    function handleFiles(files) {
-      if (files.length === 0) return;
-      
-      selectedFiles = files;
-      displayFiles();
-    }
-
-    function displayFiles() {
-      const container = document.getElementById('filesContainer');
-      const grid = document.getElementById('filesGrid');
-      const count = document.getElementById('fileCount');
-      const size = document.getElementById('totalSize');
-      
-      container.style.display = 'block';
-      document.getElementById('uploadZone').classList.add('has-files');
-      
-      const totalBytes = selectedFiles.reduce((sum, file) => sum + file.size, 0);
-      count.textContent = `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}`;
-      size.textContent = formatFileSize(totalBytes);
-      
-      grid.innerHTML = '';
-      selectedFiles.forEach((file, index) => {
-        const card = createFileCard(file, index);
-        grid.appendChild(card);
-      });
-
-      if (myPeerId) {
-        registerDevice();
-      }
-    }
-
-    function createFileCard(file, index) {
-      const card = document.createElement('div');
-      card.className = 'file-card';
-      
-      const preview = document.createElement('div');
-      preview.className = 'file-preview';
-      
-      if (file.type.startsWith('image/')) {
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(file);
-        img.onload = () => URL.revokeObjectURL(img.src);
-        preview.appendChild(img);
-      } else {
-        const icon = document.createElement('div');
-        icon.className = 'file-icon-large';
-        icon.textContent = getFileIcon(file.type);
-        preview.appendChild(icon);
-      }
-      
-      card.innerHTML = `
-        <div class="file-name" title="${file.name}">${file.name}</div>
-        <div class="file-size">${formatFileSize(file.size)}</div>
-        <button class="remove-file" onclick="removeFile(${index})">×</button>
-      `;
-      
-      card.insertBefore(preview, card.firstChild);
-      
-      return card;
-    }
-
-    function removeFile(index) {
-      selectedFiles.splice(index, 1);
-      if (selectedFiles.length === 0) {
-        document.getElementById('filesContainer').style.display = 'none';
-        document.getElementById('uploadZone').classList.remove('has-files');
-      } else {
-        displayFiles();
-      }
-    }
-
-    function getFileIcon(type) {
-      if (type.startsWith('image/')) return '🖼️';
-      if (type.startsWith('video/')) return '🎥';
-      if (type.startsWith('audio/')) return '🎵';
-      if (type.includes('pdf')) return '📕';
-      if (type.includes('zip') || type.includes('rar')) return '📦';
-      if (type.includes('word') || type.includes('document')) return '📝';
-      if (type.includes('sheet') || type.includes('excel')) return '📊';
-      return '📄';
-    }
-
-    function formatFileSize(bytes) {
-      if (bytes === 0) return '0 Bytes';
-      const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
-    }
-
-    /* ================= MODE SWITCHING ================= */
-    function setMode(mode) {
-      currentMode = mode;
-      
-      document.getElementById('sendBtn').classList.toggle('active', mode === 'send');
-      document.getElementById('receiveBtn').classList.toggle('active', mode === 'receive');
-      
-      document.getElementById('sendMode').style.display = mode === 'send' ? 'block' : 'none';
-      document.getElementById('receiveMode').style.display = mode === 'receive' ? 'block' : 'none';
-
-      if (mode === 'receive') {
-        startDiscovery();
-      } else {
-        stopDiscovery();
-      }
-    }
-
-    /* ================= SENDING FILES ================= */
-    function startSharing() {
-      if (selectedFiles.length === 0) {
-        alert('Please select files first');
-        return;
-      }
-
-      document.getElementById('startSharingBtn').disabled = true;
-      document.getElementById('qrSection').style.display = 'block';
-      showBroadcastingStatus('📡 Broadcasting... Waiting for receiver to connect');
-      
-      registerDevice();
-    }
-
-    function showBroadcastingStatus(message) {
-      const status = document.getElementById('broadcastingStatus');
-      status.style.display = 'block';
-      status.innerHTML = `<div class="broadcasting-status">${message}</div>`;
-    }
-
-    function sendFiles() {
-      selectedFiles.forEach(file => sendFile(file));
-    }
-
-    function sendFile(file) {
-      let offset = 0;
-      const reader = new FileReader();
-
-      // Send metadata
-      conn.send({
-        type: "meta",
-        name: file.name,
-        size: file.size,
-        mime: file.type || 'application/octet-stream'
-      });
-
-      reader.onload = (e) => {
-        conn.send({
-          type: "chunk",
-          data: e.target.result
-        });
-
-        offset += e.target.result.byteLength;
-        updateSendProgress((offset / file.size) * 100, offset, file.size);
-
-        if (offset < file.size) {
-          readSlice(offset);
-        } else {
-          conn.send({ type: "end" });
-        }
-      };
-
-      function readSlice(o) {
-        reader.readAsArrayBuffer(file.slice(o, o + CHUNK_SIZE));
-      }
-
-      readSlice(0);
-    }
-
-    function updateSendProgress(percent, bytes, total) {
-      const progressDiv = document.getElementById('sendProgress');
-      progressDiv.style.display = 'block';
-
-      const percentRounded = Math.round(percent);
-      
-      progressDiv.innerHTML = `
-        <div class="progress-section">
-          <div class="progress-header">
-            <span>Sending...</span>
-            <span style="font-weight: 600;">${percentRounded}%</span>
-          </div>
-          <div class="progress-bar-container">
-            <div class="progress-bar" style="width: ${percent}%"></div>
-          </div>
-          <div style="font-size: 12px; opacity: 0.7;">
-            ${formatFileSize(bytes)} / ${formatFileSize(total)}
-          </div>
-        </div>
-      `;
-
-      if (percentRounded >= 100) {
-        setTimeout(() => {
-          progressDiv.innerHTML = '<div class="status-message status-success">✅ Transfer complete!</div>';
-        }, 500);
-      }
-    }
-
-    /* ================= RECEIVING FILES ================= */
-    function handleReceivedData(data) {
-      if (data.type === "meta") {
-        receivedChunks = [];
-        receivedSize = 0;
-        currentFileMeta = data;
-        startTime = Date.now();
-        console.log('📥 Receiving:', data.name);
-      }
-
-      if (data.type === "chunk") {
-        receivedChunks.push(data.data);
-        receivedSize += data.data.byteLength;
-        
-        const percent = (receivedSize / currentFileMeta.size) * 100;
-        updateReceiveProgress(percent);
-      }
-
-      if (data.type === "end") {
-        assembleFile();
-      }
-    }
-
-    function updateReceiveProgress(percent) {
-      const progressDiv = document.getElementById('receiveProgress');
-      progressDiv.style.display = 'block';
-
-      const percentRounded = Math.round(percent);
-      const elapsed = (Date.now() - startTime) / 1000;
-      const speed = receivedSize / elapsed;
-      
-      progressDiv.innerHTML = `
-        <div class="progress-section">
-          <div class="progress-header">
-            <span>Receiving ${currentFileMeta.name}...</span>
-            <span style="font-weight: 600;">${percentRounded}%</span>
-          </div>
-          <div class="progress-bar-container">
-            <div class="progress-bar" style="width: ${percent}%"></div>
-          </div>
-          <div style="font-size: 12px; opacity: 0.7;">
-            ${formatFileSize(receivedSize)} / ${formatFileSize(currentFileMeta.size)} • ${formatFileSize(speed)}/s
-          </div>
-        </div>
-      `;
-    }
-
-    function assembleFile() {
-      console.log('✅ Assembling file...');
-      
-      try {
-        const blob = new Blob(receivedChunks, {
-          type: currentFileMeta.mime || 'application/octet-stream'
-        });
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = currentFileMeta.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-
-        document.getElementById('receiveProgress').innerHTML = `
-          <div class="status-message status-success">
-            ✅ Download complete! <strong>${currentFileMeta.name}</strong>
-          </div>
-        `;
-
-      } catch (err) {
-        console.error('Error:', err);
-        showStatus('Error downloading file', 'error');
-      }
-    }
-
-    function showStatus(message, type) {
-      const deviceList = document.getElementById('deviceList');
-      deviceList.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
-    }
-
-    // Check for peer ID in URL (from QR code)
-    const urlParams = new URLSearchParams(window.location.search);
-    const peerFromUrl = urlParams.get('peer');
-    if (peerFromUrl) {
-      setTimeout(() => {
-        setMode('receive');
-        setTimeout(() => connectToDevice(peerFromUrl), 1000);
-      }, 500);
-    }
-  </script>
+</script>
 </body>
 </html>
