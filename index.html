@@ -1,215 +1,270 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>TransFiles - Free File Transfer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transfer - Free P2P Sharing</title>
 
-  <!-- PeerJS -->
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<!-- PeerJS -->
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<!-- QR -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<style>
+body {
+  font-family: Arial;
+  background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  color: white;
+  text-align: center;
+  padding: 20px;
+}
+.container { max-width: 800px; margin: auto; }
+button {
+  padding: 10px;
+  margin: 5px;
+  border-radius: 8px;
+  border: none;
+  background: #00c6ff;
+  cursor: pointer;
+}
+input { padding: 10px; border-radius: 6px; border: none; }
+#deviceList div {
+  background: rgba(255,255,255,0.1);
+  margin: 5px;
+  padding: 10px;
+  border-radius: 8px;
+}
+progress { width: 80%; height: 20px; }
+</style>
 </head>
 
 <body>
+<div class="container">
+<h1>📡 Transfer</h1>
 
-<h2>📁 TransFiles</h2>
+<h3>Your QR</h3>
+<div id="qr"></div>
 
-<input type="file" id="fileInput" multiple />
-<button onclick="sendFiles()">Send Files</button>
+<h3>Manual Connect</h3>
+<input id="peerIdInput" placeholder="Enter Peer ID">
+<button onclick="manualConnect()">Connect</button>
 
-<h3>📡 Devices</h3>
-<ul id="deviceList"></ul>
+<h3>Nearby Devices</h3>
+<div id="deviceList"></div>
 
+<h3>Send Files</h3>
+<input type="file" id="fileInput" multiple>
+<br><br>
+<button onclick="sendFiles()">Send</button>
+
+<h3>Status</h3>
+<div id="status">Idle</div>
+<progress id="progress" value="0" max="100"></progress>
+</div>
+
+<script>
 /* ================= FIREBASE CONFIG ================= */
-// ✅ FIXED - Correct Europe database URL!
 const firebaseConfig = {
   apiKey: "AIzaSyDmc2QfJqqHacK8Lk81RwZwPiHpYsVm5OQ",
   authDomain: "transfiles-shahrozedebug.firebaseapp.com",
   databaseURL: "https://transfiles-shahrozedebug-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "transfiles-shahrozedebug",
-  storageBucket: "transfiles-shahrozedebug.firebasestorage.app",
-  messagingSenderId: "829432211951",
-  appId: "1:829432211951:web:0328024b237a0d0737ae1a",
-  measurementId: "G-TYTLCDCQDX"
+  projectId: "transfiles-shahrozedebug"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* ================= GLOBAL STATE ================= */
-let peer, conn;
-let myPeerId;
-let deviceName = '';
-let selectedFiles = [];
-let currentMode = 'send';
-
-// Receiver state
-let receivedChunks = [];
-let currentFileMeta = null;
-let receivedSize = 0;
-let startTime = 0;
-
-const CHUNK_SIZE = 256 * 1024;
-
-/* ================= INITIALIZATION ================= */
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('🚀 Initializing Transfer App...');
-  setupDeviceName();
-  setupEventListeners();
-  initializePeer();
+/* ================= PEER CONFIG ================= */
+const peer = new Peer({
+  config: {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" }
+    ],
+    iceCandidatePoolSize: 10
+  }
 });
 
-function setupDeviceName() {
-  let saved = localStorage.getItem('deviceName');
-  if (!saved) {
-    const devices = ['Laptop', 'Desktop', 'Phone', 'Tablet', 'Computer'];
-    const adjectives = ['Cool', 'Fast', 'Super', 'Smart', 'Pro'];
-    saved = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${devices[Math.floor(Math.random() * devices.length)]}`;
-  }
+let conn;
+let myId;
 
-  deviceName = saved;
-  document.getElementById('deviceNameInput').value = deviceName;
+/* ================= INIT ================= */
+peer.on("open", (id) => {
+  myId = id;
+  updateStatus("Your ID: " + id);
+  console.log("✅ Peer ready:", id);
 
-  document.getElementById('deviceNameInput').addEventListener('change', function(e) {
-    deviceName = e.target.value || 'My Device';
-    localStorage.setItem('deviceName', deviceName);
-    if (myPeerId) registerDevice();
-  });
-}
+  // QR
+  new QRCode(document.getElementById("qr"), id);
 
-/* ================= PEER SETUP ================= */
-function initializePeer() {
-  peer = new Peer({
-    config: {
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" }
-      ]
-    }
-  });
-
-  peer.on("open", (id) => {
-    myPeerId = id;
-    console.log('✅ Peer ready:', id);
-    registerDevice();
-  });
-
-  peer.on("connection", (c) => {
-    conn = c;
-    setupConnection();
-  });
-}
-
-/* ================= FIXED FUNCTION ================= */
-function registerDevice() {
-  if (!myPeerId) {
-    console.warn('⚠️ Cannot register device - peer not ready yet');
-    return;
-  }
-
-  const deviceData = {
-    id: myPeerId,
-    name: deviceName,
-    fileCount: selectedFiles.length,
+  // Register device
+  db.ref("devices/" + id).set({
+    id,
+    name: "Device-" + id.slice(0,5),
     timestamp: Date.now()
-  };
+  }).then(() => {
+    console.log("✅ Device registered in Firebase");
+  }).catch(err => {
+    console.error("❌ Firebase error:", err);
+  });
 
-  console.log('📝 Registering device in Firebase:', deviceData);
-
-  db.ref("devices/" + myPeerId)
-    .set(deviceData)
-    .then(() => {
-      console.log('✅ Device registered successfully! Files:', selectedFiles.length);
-    })
-    .catch((error) => {
-      console.error('❌ Firebase registration error:', error);
-    });
-}
+  // Auto remove
+  window.addEventListener("beforeunload", () => {
+    db.ref("devices/" + id).remove();
+  });
+});
 
 /* ================= DISCOVERY ================= */
-function startDiscovery() {
-  db.ref("devices").on("value", snap => {
-    const data = snap.val() || {};
-    const deviceList = document.getElementById('deviceList');
-    deviceList.innerHTML = '';
+db.ref("devices").on("value", snap => {
+  const data = snap.val() || {};
+  const list = document.getElementById("deviceList");
+  list.innerHTML = "";
 
-    const now = Date.now();
-    const devices = [];
+  const now = Date.now();
 
-    Object.values(data).forEach(d => {
-      if (d.id === myPeerId) return;
-      if (now - d.timestamp > 60000) return;
-      devices.push(d);
-    });
+  Object.values(data).forEach(d => {
+    if (d.id === myId) return;
+    if (now - d.timestamp > 60000) return;
 
-    if (devices.length === 0) {
-      deviceList.innerHTML = `
-        <div class="empty-devices">
-          <div class="empty-icon">📡</div>
-          <div>No devices found</div>
-        </div>`;
-    } else {
-      devices.forEach(device => {
-        const item = document.createElement('div');
-        item.className = 'device-item';
-        item.innerHTML = `
-          <div class="device-icon">📱</div>
-          <div class="device-info">
-            <div class="device-name">${device.name}</div>
-            <div class="device-status">${device.fileCount} files ready</div>
-          </div>`;
-        item.onclick = () => connectToDevice(device.id);
-        deviceList.appendChild(item);
-      });
-    }
+    const div = document.createElement("div");
+    div.innerHTML = `
+      ${d.name}
+      <button onclick="connectTo('${d.id}')">Connect</button>
+    `;
+    list.appendChild(div);
   });
-}
-</script>
-/* ================= CONNECT ================= */
-function connectToDevice(peerId) {
-  if (connections[peerId]) return;
+  
+  console.log("📡 Devices found:", Object.values(data).filter(d => d.id !== myId).length);
+});
 
-  const conn = peer.connect(peerId);
+/* ================= CONNECTION ================= */
+peer.on("connection", c => {
+  console.log("📱 Incoming connection!");
+  conn = c;
+  setupConnection();
+});
 
-  conn.on('open', () => {
-    console.log("✅ Connected to:", peerId);
-    connections[peerId] = conn;
-  });
+function connectTo(id) {
+  console.log("🔗 Connecting to:", id);
+  conn = peer.connect(id);
+  setupConnection();
 }
 
-/* ================= SEND FILES ================= */
+function manualConnect() {
+  connectTo(document.getElementById("peerIdInput").value);
+}
+
+function setupConnection() {
+  console.log("⚙️ Setting up connection...");
+  
+  conn.on("open", () => {
+    console.log("✅ Connection opened!");
+    updateStatus("Connected");
+  });
+
+  conn.on("data", handleData);
+
+  conn.on("error", (err) => {
+    console.error("❌ Connection error:", err);
+    updateStatus("Connection failed");
+    alert("Try same WiFi or QR");
+  });
+}
+
+/* ================= FILE SEND ================= */
+const CHUNK = 256 * 1024;
+
 function sendFiles() {
-  if (selectedFiles.length === 0) {
-    alert("Select files first");
+  const files = document.getElementById("fileInput").files;
+
+  if (!conn || !conn.open) {
+    alert("Not connected");
+    console.error("❌ No connection established");
     return;
   }
 
-  Object.values(connections).forEach(conn => {
-    selectedFiles.forEach(file => {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-        conn.send({
-          name: file.name,
-          file: reader.result
-        });
-      };
-
-      reader.readAsArrayBuffer(file);
-    });
-  });
+  console.log("📤 Sending", files.length, "files");
+  Array.from(files).forEach(file => sendFile(file));
 }
 
-/* ================= CLEANUP ================= */
-window.addEventListener("beforeunload", () => {
-  if (myPeerId) {
-    db.ref("devices/" + myPeerId).remove();
-  }
-});
-</script>
+function sendFile(file) {
+  let offset = 0;
+  const reader = new FileReader();
 
+  console.log("📄 Sending file:", file.name, file.size, "bytes");
+
+  conn.send({ type: "meta", name: file.name, size: file.size });
+
+  reader.onload = e => {
+    console.log("📦 Sending chunk, offset:", offset);
+    conn.send({ type: "chunk", data: e.target.result });
+
+    offset += e.target.result.byteLength;
+    updateProgress(offset / file.size * 100);
+
+    if (offset < file.size) readSlice(offset);
+    else {
+      console.log("✅ File send complete");
+      conn.send({ type: "end" });
+    }
+  };
+
+  function readSlice(o) {
+    reader.readAsArrayBuffer(file.slice(o, o + CHUNK));
+  }
+
+  readSlice(0);
+}
+
+/* ================= FILE RECEIVE ================= */
+let buffers = [];
+let fileMeta;
+let received = 0;
+
+function handleData(data) {
+  if (data.type === "meta") {
+    buffers = [];
+    received = 0;
+    fileMeta = data;
+    console.log("📥 Receiving file:", data.name, data.size, "bytes");
+  }
+
+  if (data.type === "chunk") {
+    buffers.push(data.data);
+    received += data.data.byteLength;
+    updateProgress(received / fileMeta.size * 100);
+    console.log("📦 Chunk received, total:", received, "/", fileMeta.size);
+  }
+
+  if (data.type === "end") {
+    console.log("✅ File receive complete, assembling...");
+    const blob = new Blob(buffers);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fileMeta.name;
+    a.click();
+
+    updateStatus("Download complete");
+    console.log("💾 File downloaded:", fileMeta.name);
+  }
+}
+
+/* ================= UI ================= */
+function updateStatus(msg) {
+  document.getElementById("status").innerText = msg;
+  console.log("📊 Status:", msg);
+}
+
+function updateProgress(val) {
+  document.getElementById("progress").value = val;
+}
+
+console.log("🚀 Transfer app initialized");
+</script>
 </body>
 </html>
